@@ -48,9 +48,10 @@ serve(async (req) => {
     // Parse the request body
     const { content, title } = await req.json() as RequestBody
 
-    if (!content) {
+    // Allow empty content if title is provided
+    if (!content && !title) {
       return new Response(
-        JSON.stringify({ error: 'Content is required' }),
+        JSON.stringify({ error: 'Either content or title is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -67,11 +68,11 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'You are a helpful assistant that expands brief notes into well-structured, detailed content. Create approximately 500 words of engaging, informative text based on the user\'s input. Maintain the original intent and tone while adding relevant details, examples, and context. Only expand the content, do not modify or include the title in your response.'
+            content: 'You are a helpful assistant that expands brief notes into well-structured, detailed content. Create approximately 500 words of engaging, informative text based on the user\'s input. Maintain the original intent and tone while adding relevant details, examples, and context. Only output the expanded content, not the title.'
           },
           {
             role: 'user',
-            content: `Please expand this note into a well-structured essay of about 500 words:\n\n${content}`
+            content: `Please write a well-structured essay of about 500 words based on this topic:\n\nTitle: ${title || 'Untitled'}\n\nInitial notes: ${content || '(No initial content provided)'}`
           }
         ],
         temperature: 0.7,

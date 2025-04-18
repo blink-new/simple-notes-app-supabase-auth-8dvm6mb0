@@ -102,15 +102,17 @@ export function NoteEditor({ note, onSave, onCancel }: NoteEditorProps) {
   };
 
   const handleExpandWithAI = async () => {
-    if (!content.trim()) {
-      toast.error('Please add some content to expand');
+    // Allow expansion even if content is empty, as long as we have a title
+    if (!content.trim() && !title.trim()) {
+      toast.error('Please add a title or some content to expand');
       return;
     }
 
     setAiLoading(true);
     
     try {
-      // Only pass the content to be expanded, title is just for context
+      // Pass both title and content to the AI for context
+      // The AI will use the title to generate content even if the content field is empty
       const expandedContent = await expandNoteWithAI(content, title);
       // Only update the content field, leave the title unchanged
       setContent(expandedContent);
