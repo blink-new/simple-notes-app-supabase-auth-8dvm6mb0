@@ -1,7 +1,9 @@
 
 import { useState, useEffect } from 'react';
-import { getNotes, deleteNote, getCategories } from '../lib/notes';
-import { Note, Category } from '../lib/supabase';
+import { getNotes, deleteNote } from '../lib/notes';
+import { getCategories } from '../lib/categories';
+import { Note } from '../lib/supabase';
+import { Category } from '../lib/categories';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Trash2, Edit, Plus, RefreshCw, Tag } from 'lucide-react';
