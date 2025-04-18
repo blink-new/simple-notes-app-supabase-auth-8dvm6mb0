@@ -1,17 +1,25 @@
 
 import { useState, useEffect } from 'react';
-import { createNote, updateNote, getCategories } from '../lib/notes';
-import { Note, Category } from '../lib/supabase';
+import { createNote, updateNote } from '../lib/notes';
+import { expandNoteWithAI } from '../lib/ai';
+import { Note } from '../lib/supabase';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from './ui/card';
-import { Save, X } from 'lucide-react';
+import { Save, X, Wand2, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { getCategories } from '../lib/categories';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 interface NoteEditorProps {
-  note?: Note & { categories?: Category };
+  note?: Note;
   onSave: () => void;
   onCancel: () => void;
 }
@@ -20,9 +28,9 @@ export function NoteEditor({ note, onSave, onCancel }: NoteEditorProps) {
   const [title, setTitle] = useState(note?.title || '');
   const [content, setContent] = useState(note?.content || '');
   const [categoryId, setCategoryId] = useState(note?.category_id || '');
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string; color: string }>>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false);
   const isEditing = !!note;
 
   useEffect(() => {
@@ -31,35 +39,36 @@ export function NoteEditor({ note, onSave, onCancel }: NoteEditorProps) {
       setContent(note.content || '');
       setCategoryId(note.category_id);
     }
-  }, [note]);
-
-  useEffect(() => {
-    async function loadCategories() {
+    
+    // Load categories
+    const loadCategories = async () => {
       try {
-        setLoadingCategories(true);
-        const data = await getCategories();
-        setCategories(data);
+        const categoriesData = await getCategories();
+        setCategories(categoriesData);
         
-        // If no category is selected and we have categories, select the first one
-        if (!categoryId && data.length > 0) {
-          setCategoryId(data[0].id);
+        // Set default category if creating a new note and no category is selected
+        if (!isEditing && !categoryId && categoriesData.length > 0) {
+          setCategoryId(categoriesData[0].id);
         }
       } catch (error) {
         console.error('Error loading categories:', error);
         toast.error('Failed to load categories');
-      } finally {
-        setLoadingCategories(false);
       }
-    }
+    };
     
     loadCategories();
-  }, []);
+  }, [note, isEditing, categoryId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!title.trim()) {
       toast.error('Title is required');
+      return;
+    }
+    
+    if (!categoryId) {
+      toast.error('Please select a category');
       return;
     }
     
@@ -78,19 +87,37 @@ export function NoteEditor({ note, onSave, onCancel }: NoteEditorProps) {
       console.error('Error saving note:', error);
       
       // Provide more specific error messages
-      if (error.message?.includes('not logged in') || error.message?.includes('JWT')) {
+      if (error.message.includes('not logged in') || error.message.includes('JWT')) {
         toast.error('Authentication error. Please sign in again.');
       } else if (error.code === '23505') {
         toast.error('A note with this title already exists.');
       } else if (error.code === 'PGRST116') {
         toast.error('You do not have permission to perform this action.');
-      } else if (error.code === '42501') {
-        toast.error('Permission denied. Please sign in again.');
       } else {
         toast.error(error.message || 'Failed to save note');
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExpandWithAI = async () => {
+    if (!content.trim()) {
+      toast.error('Please add some content to expand');
+      return;
+    }
+
+    setAiLoading(true);
+    
+    try {
+      const expandedContent = await expandNoteWithAI(content, title);
+      setContent(expandedContent);
+      toast.success('Content expanded successfully!');
+    } catch (error: any) {
+      console.error('Error expanding content:', error);
+      toast.error(error.message || 'Failed to expand content');
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -110,58 +137,62 @@ export function NoteEditor({ note, onSave, onCancel }: NoteEditorProps) {
               className="text-lg font-medium"
             />
             
-            <div>
-              <label className="text-sm font-medium mb-1 block text-muted-foreground">
-                Category
-              </label>
-              <Select
-                value={categoryId}
-                onValueChange={setCategoryId}
-                disabled={loadingCategories}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {loadingCategories ? (
-                    <SelectItem value="loading" disabled>
-                      Loading categories...
-                    </SelectItem>
-                  ) : categories.length === 0 ? (
-                    <SelectItem value="none" disabled>
-                      No categories available
-                    </SelectItem>
-                  ) : (
-                    categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        <div className="flex items-center">
-                          <div 
-                            className="w-3 h-3 rounded-full mr-2" 
-                            style={{ backgroundColor: category.color }}
-                          />
-                          {category.name}
-                        </div>
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select value={categoryId} onValueChange={setCategoryId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    <div className="flex items-center">
+                      <div 
+                        className="w-3 h-3 rounded-full mr-2" 
+                        style={{ backgroundColor: category.color }}
+                      />
+                      {category.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             
-            <Textarea
-              placeholder="Write your note here..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={8}
-              className="resize-none"
-            />
+            <div className="relative">
+              <Textarea
+                placeholder="Write your note here..."
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={12}
+                className="resize-none"
+              />
+              
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="absolute top-2 right-2 bg-white dark:bg-gray-800 shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                onClick={handleExpandWithAI}
+                disabled={aiLoading}
+              >
+                {aiLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    Expanding...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-4 w-4 mr-1" />
+                    Help me write
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardContent>
         <CardFooter className="justify-end gap-2">
           <Button type="button" variant="outline" onClick={onCancel}>
             <X className="h-4 w-4 mr-1" /> Cancel
           </Button>
-          <Button type="submit" disabled={loading || loadingCategories}>
+          <Button type="submit" disabled={loading}>
             <Save className="h-4 w-4 mr-1" /> {loading ? 'Saving...' : 'Save'}
           </Button>
         </CardFooter>
