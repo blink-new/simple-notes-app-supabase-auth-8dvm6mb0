@@ -30,9 +30,20 @@ export async function getNote(id: string) {
 }
 
 export async function createNote(title: string, content: string = '') {
+  // Get the current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('You must be logged in to create a note');
+  }
+
   const { data, error } = await supabase
     .from('notes')
-    .insert([{ title, content }])
+    .insert([{ 
+      title, 
+      content,
+      user_id: user.id 
+    }])
     .select()
     .single();
 
@@ -44,10 +55,21 @@ export async function createNote(title: string, content: string = '') {
 }
 
 export async function updateNote(id: string, updates: Partial<Note>) {
+  // Get the current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('You must be logged in to update a note');
+  }
+
   const { data, error } = await supabase
     .from('notes')
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update({ 
+      ...updates, 
+      updated_at: new Date().toISOString() 
+    })
     .eq('id', id)
+    .eq('user_id', user.id) // Ensure the user can only update their own notes
     .select()
     .single();
 
@@ -59,10 +81,18 @@ export async function updateNote(id: string, updates: Partial<Note>) {
 }
 
 export async function deleteNote(id: string) {
+  // Get the current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('You must be logged in to delete a note');
+  }
+
   const { error } = await supabase
     .from('notes')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', user.id); // Ensure the user can only delete their own notes
 
   if (error) {
     throw error;
