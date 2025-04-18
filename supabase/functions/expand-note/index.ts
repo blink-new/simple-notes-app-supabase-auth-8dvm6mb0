@@ -67,11 +67,11 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'You are a helpful assistant that expands brief notes into well-structured, detailed content. Create approximately 500 words of engaging, informative text based on the user\'s input. Maintain the original intent and tone while adding relevant details, examples, and context.'
+            content: 'You are a helpful assistant that expands brief notes into well-structured, detailed content. Create approximately 500 words of engaging, informative text based on the user\'s input. Maintain the original intent and tone while adding relevant details, examples, and context. Only expand the content, do not modify or include the title in your response.'
           },
           {
             role: 'user',
-            content: `Please expand this note into a well-structured essay of about 500 words:\n\nTitle: ${title || 'Note'}\n\nContent: ${content}`
+            content: `Please expand this note into a well-structured essay of about 500 words:\n\n${content}`
           }
         ],
         temperature: 0.7,

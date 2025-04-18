@@ -110,7 +110,9 @@ export function NoteEditor({ note, onSave, onCancel }: NoteEditorProps) {
     setAiLoading(true);
     
     try {
+      // Only pass the content to be expanded, title is just for context
       const expandedContent = await expandNoteWithAI(content, title);
+      // Only update the content field, leave the title unchanged
       setContent(expandedContent);
       toast.success('Content expanded successfully!');
     } catch (error: any) {
