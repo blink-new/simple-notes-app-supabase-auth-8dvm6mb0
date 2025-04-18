@@ -1,6 +1,7 @@
 
 import { supabase } from './supabase';
 import type { Note } from './supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 export async function getNotes() {
   const { data: { session } } = await supabase.auth.getSession();
@@ -51,14 +52,18 @@ export async function createNote(title: string, content: string = '') {
   }
   
   const user_id = session.user.id;
+  const id = uuidv4(); // Generate a UUID for the note
   
-  // Create the note with explicit user_id
+  // Create the note with explicit id and user_id
   const { data, error } = await supabase
     .from('notes')
     .insert([{ 
+      id,
       title, 
       content,
-      user_id
+      user_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     }])
     .select()
     .single();
