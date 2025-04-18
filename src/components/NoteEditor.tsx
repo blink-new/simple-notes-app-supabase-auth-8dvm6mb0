@@ -41,21 +41,32 @@ export function NoteEditor({ note, onSave, onCancel }: NoteEditorProps) {
     try {
       if (isEditing && note) {
         await updateNote(note.id, { title, content });
-        toast.success('Note updated');
+        toast.success('Note updated successfully');
       } else {
         await createNote(title, content);
-        toast.success('Note created');
+        toast.success('Note created successfully');
       }
       onSave();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to save note');
+      console.error('Error saving note:', error);
+      
+      // Provide more specific error messages
+      if (error.message.includes('not logged in') || error.message.includes('JWT')) {
+        toast.error('Authentication error. Please sign in again.');
+      } else if (error.code === '23505') {
+        toast.error('A note with this title already exists.');
+      } else if (error.code === 'PGRST116') {
+        toast.error('You do not have permission to perform this action.');
+      } else {
+        toast.error(error.message || 'Failed to save note');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card>
+    <Card className="shadow-lg transition-all">
       <form onSubmit={handleSubmit}>
         <CardHeader>
           <CardTitle>{isEditing ? 'Edit Note' : 'New Note'}</CardTitle>
