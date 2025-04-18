@@ -51,12 +51,14 @@ export function NoteEditor({ note, onSave, onCancel }: NoteEditorProps) {
       console.error('Error saving note:', error);
       
       // Provide more specific error messages
-      if (error.message.includes('not logged in') || error.message.includes('JWT')) {
+      if (error.message?.includes('not logged in') || error.message?.includes('JWT')) {
         toast.error('Authentication error. Please sign in again.');
       } else if (error.code === '23505') {
         toast.error('A note with this title already exists.');
       } else if (error.code === 'PGRST116') {
         toast.error('You do not have permission to perform this action.');
+      } else if (error.code === '42501') {
+        toast.error('Permission denied. Please sign in again.');
       } else {
         toast.error(error.message || 'Failed to save note');
       }

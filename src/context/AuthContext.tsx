@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 type AuthContextType = {
   session: Session | null;
@@ -25,15 +26,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    const fetchSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error fetching session:', error);
+          return;
+        }
+        
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+      } catch (err) {
+        console.error('Unexpected error fetching session:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchSession();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        console.log('Auth state changed:', _event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -46,17 +62,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      });
+      
+      if (error) {
+        console.error('Sign in error:', error);
+        return { error };
+      }
+      
+      // Update session and user immediately after successful sign in
+      setSession(data.session);
+      setUser(data.user);
+      
+      return { error: null };
+    } catch (err: any) {
+      console.error('Unexpected sign in error:', err);
+      return { error: err };
+    }
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    return { error };
+    try {
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          emailRedirectTo: window.location.origin
+        }
+      });
+      
+      if (error) {
+        console.error('Sign up error:', error);
+        return { error };
+      }
+      
+      // With autoconfirm enabled, we can set the session immediately
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.user);
+      }
+      
+      return { error: null };
+    } catch (err: any) {
+      console.error('Unexpected sign up error:', err);
+      return { error: err };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Sign out error:', error);
+        toast.error('Error signing out');
+        return;
+      }
+      
+      // Clear session and user immediately
+      setSession(null);
+      setUser(null);
+    } catch (err) {
+      console.error('Unexpected sign out error:', err);
+      toast.error('Error signing out');
+    }
   };
 
   const value = {
